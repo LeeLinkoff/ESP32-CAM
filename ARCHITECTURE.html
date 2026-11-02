@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="ESP32-CAM C++ firmware, concurrent USB/Wi-Fi/Bluetooth transports, Node TypeScript API, Angular 21 signal-based frontend, diagnostics and API discovery.">
+  <title>ESP32-CAM Control — Overall Architecture</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #172c47;
+      --muted: #516b86;
+      --blue: #2468b9;
+      --mint: #0b826e;
+      --violet: #6b50b4;
+      --line: #b8cbe2;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: radial-gradient(circle at 12% 0%, #dbeafe 0, transparent 43%), #f6f9fd;
+      color: var(--ink);
+      font: 16px/1.6 Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif;
+    }
+    .shell { max-width: 1500px; padding: 44px clamp(16px, 4vw, 65px) 70px; margin: auto; }
+    .eyebrow {
+      color: var(--mint);
+      font-size: 12px;
+      text-transform: uppercase;
+      font-weight: 800;
+      letter-spacing: .22em;
+    }
+    h1 { margin: 9px 0 8px; font-size: clamp(30px, 4vw, 53px); line-height: 1.14; letter-spacing: -.045em; }
+    .intro { margin: 0 0 27px; max-width: 900px; color: var(--muted); font-size: 17px; }
+    .diagram-panel {
+      border: 1px solid #c9d9ed;
+      border-radius: 20px;
+      padding: clamp(6px, 1.5vw, 19px);
+      background: linear-gradient(142deg, #ffffff, #edf4fc 88%);
+      box-shadow: 0 19px 55px #1c4f8b1a;
+      overflow-x: auto;
+    }
+    svg { display: block; width: 100%; min-width: 900px; height: auto; }
+    .card { stroke-width: 1.8; }
+    .box-title { fill: #193b5d; font-size: 24px; font-weight: 760; letter-spacing: -.5px; }
+    .box-subtitle { fill: #496783; font-size: 15px; font-weight: 480; }
+    .transport-title { fill: #1d435e; font-size: 18px; font-weight: 780; }
+    .transport-description { fill: #496b7e; font-size: 14px; }
+    .mini-title { fill: #22516d; font-size: 13px; font-weight: 700; letter-spacing: .09em; }
+    .svg-tag { fill: #2b619d; font-size: 13px; font-weight: 800; letter-spacing: .1em; }
+    .svg-small { fill: #58738e; font-size: 14px; }
+    .flow-line { fill: none; stroke: #98aec4; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+    .blue-flow { stroke: #4a86cc; }
+    .mint-flow { stroke: #32a890; }
+    .connection-dot { fill: #85a5c8; }
+    .key { display: flex; flex-wrap: wrap; gap: 10px; margin: 18px 0 6px; }
+    .key span { padding: 7px 12px; border: 1px solid #c7d7ea; border-radius: 100px; background: #ffffff; color: #415f7d; font-size: 13px; }
+    .key b { color: #1f3b5a; }
+    .details { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 17px; margin-top: 23px; }
+    .detail { background: #ffffff; border: 1px solid #d2deed; border-radius: 15px; padding: 20px 22px; box-shadow: 0 5px 18px #254f7d0a; }
+    h2 { font-size: 17px; margin: 0 0 9px; }
+    p { margin: 0; }
+    .detail p { color: var(--muted); font-size: 14px; }
+    code { color: #175ca4; font-size: .93em; }
+    footer { color: #607992; font-size: 13px; margin-top: 24px; }
+    @media print {
+      :root { color-scheme: light; }
+      body { background: white; color: #172942; }
+      .diagram-panel { box-shadow: none; background: #ffffff; break-inside: avoid; }
+      .detail { background: #f6f9ff; color: #152541; }
+      .detail p, .intro, footer { color: #405573; }
+      .shell { padding: 10px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <div class="eyebrow">AI Thinker ESP32-CAM · System blueprint</div>
+    <h1>Overall control architecture</h1>
+    <p class="intro">The ESP32-CAM runs its enabled transports concurrently. Angular/Node or Python chooses a client connection without changing firmware mode. Angular 21 uses zoneless signals; Node only starts listening at launch and does not open COM4 until the client requests a connection. The existing object-oriented firmware classes remain in place.</p>
+
+    <section class="diagram-panel" aria-label="Overall architecture diagram">
+      <svg viewBox="0 0 1450 790" role="img" aria-labelledby="architecture-title architecture-description"
+           xmlns="http://www.w3.org/2000/svg">
+        <title id="architecture-title">ESP32-CAM Angular, Node.js, USB and wireless communication architecture</title>
+        <desc id="architecture-description">
+          Angular 21 frontend uses signals and zoneless change detection and connects through the Node.js backend to one of four selectable
+          communication transports: USB serial, Wi-Fi TCP, Wi-Fi HTTP or Bluetooth Classic
+          Serial Port Profile. All configured device transports run at once, independently
+          of the client's selected connection. USB serial remains available as default.
+          All transports share the ESP32-CAM camera controller. Commands i, c and t
+          read camera information, capture a JPEG and run firmware tests, respectively.
+          The Node backend exposes GET /api/help, diagnostics logs, and client-selected connect/disconnect APIs.
+        </desc>
+        <defs>
+          <linearGradient id="uiFill" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#f5f9ff"/>
+            <stop offset="1" stop-color="#dceaff"/>
+          </linearGradient>
+          <linearGradient id="apiFill" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#f7f4ff"/>
+            <stop offset="1" stop-color="#e5e0fa"/>
+          </linearGradient>
+          <linearGradient id="deviceFill" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#effdf8"/>
+            <stop offset="1" stop-color="#d4f0e6"/>
+          </linearGradient>
+          <marker id="arrowBlue" markerWidth="11" markerHeight="11" refX="9" refY="5.5" orient="auto" markerUnits="userSpaceOnUse">
+            <path d="M1 1 L9 5.5 L1 10" fill="none" stroke="#4a86cc" stroke-width="2"/>
+          </marker>
+          <marker id="arrowMint" markerWidth="11" markerHeight="11" refX="9" refY="5.5" orient="auto" markerUnits="userSpaceOnUse">
+            <path d="M1 1 L9 5.5 L1 10" fill="none" stroke="#32a890" stroke-width="2"/>
+          </marker>
+        </defs>
+
+        <!-- Status banners -->
+        <rect x="40" y="25" width="286" height="39" rx="19" fill="#e4f0ff" stroke="#9fbce3"/>
+        <circle cx="61" cy="44" r="6" fill="#337ac8"/>
+        <text x="76" y="49" font-size="14" font-weight="800" fill="#22558d">USB DEFAULT + RECOVERY</text>
+        <rect x="345" y="25" width="354" height="39" rx="19" fill="#dff8ee" stroke="#91d2be"/>
+        <circle cx="366" cy="44" r="6" fill="#28a888"/>
+        <text x="381" y="49" font-size="14" font-weight="800" fill="#216f5e">ALL SERVICES RUN CONCURRENTLY</text>
+        <rect x="718" y="25" width="365" height="39" rx="19" fill="#eee9ff" stroke="#bcb0e8"/>
+        <circle cx="739" cy="44" r="6" fill="#7a61c0"/>
+        <text x="754" y="49" font-size="14" font-weight="800" fill="#634a9e">NO AUTOMATIC MCU CONNECTION</text>
+
+        <!-- Data paths behind cards -->
+        <path class="flow-line blue-flow" d="M302 379 H358" marker-end="url(#arrowBlue)"/>
+        <path class="flow-line" d="M661 379 H699 V208 M699 208 V616"/>
+        <path class="flow-line blue-flow" d="M699 208 H743" marker-end="url(#arrowBlue)"/>
+        <path class="flow-line mint-flow" d="M699 344 H743" marker-end="url(#arrowMint)"/>
+        <path class="flow-line mint-flow" d="M699 480 H743" marker-end="url(#arrowMint)"/>
+        <path class="flow-line mint-flow" d="M699 616 H743" marker-end="url(#arrowMint)"/>
+        <circle class="connection-dot" cx="699" cy="344" r="4"/>
+        <circle class="connection-dot" cx="699" cy="480" r="4"/>
+
+        <!-- Transport output bus -->
+        <path class="flow-line blue-flow" d="M1007 208 H1052"/>
+        <path class="flow-line mint-flow" d="M1007 344 H1052"/>
+        <path class="flow-line mint-flow" d="M1007 480 H1052"/>
+        <path class="flow-line mint-flow" d="M1007 616 H1052"/>
+        <path class="flow-line" d="M1052 208 V616"/>
+        <path class="flow-line mint-flow" d="M1052 412 H1094" marker-end="url(#arrowMint)"/>
+        <circle class="connection-dot" cx="1052" cy="344" r="4"/>
+        <circle class="connection-dot" cx="1052" cy="480" r="4"/>
+
+        <!-- Angular -->
+        <rect class="card" x="45" y="266" width="258" height="228" rx="20"
+              fill="url(#uiFill)" stroke="#84aee2"/>
+        <!-- Browser window with a page layout: frontend UI, not source code -->
+        <rect x="67" y="287" width="47" height="42" rx="9" fill="#d5e7ff" stroke="#84aee2"/>
+        <rect x="73" y="294" width="35" height="28" rx="4" fill="#ffffff" stroke="#376eb0" stroke-width="1.8"/>
+        <path d="M73 302 H108" stroke="#376eb0" stroke-width="1.5"/>
+        <circle cx="78" cy="298" r="1.5" fill="#e38375"/>
+        <circle cx="83" cy="298" r="1.5" fill="#ecc46a"/>
+        <circle cx="88" cy="298" r="1.5" fill="#67c1a6"/>
+        <rect x="78" y="307" width="13" height="10" rx="2" fill="#b9d9ff"/>
+        <path d="M95 308 H103 M95 313 H103 M95 318 H101" stroke="#5481b8" stroke-width="1.8" stroke-linecap="round"/>
+        <text x="67" y="358" class="svg-tag">WEB FRONTEND</text>
+        <text x="67" y="394" class="box-title">Angular UI</text>
+        <text x="67" y="425" class="box-subtitle">Signals · zoneless · light/dark</text>
+        <text x="67" y="448" class="box-subtitle">Camera + pop-out diagnostics</text>
+        <rect x="67" y="463" width="178" height="21" rx="10" fill="#d6e7fb"/>
+        <text x="79" y="478" font-size="12" font-weight="800" fill="#245f9e">HTTP /api requests</text>
+
+        <!-- Backend -->
+        <rect class="card" x="359" y="246" width="302" height="268" rx="20"
+              fill="url(#apiFill)" stroke="#aea1d9"/>
+        <!-- Two network server units with status lights: Node API/backend -->
+        <rect x="382" y="267" width="47" height="42" rx="9" fill="#e8e2fd" stroke="#a89bdc"/>
+        <rect x="389" y="275" width="33" height="11" rx="3" fill="#ffffff" stroke="#765db5" stroke-width="1.6"/>
+        <rect x="389" y="290" width="33" height="11" rx="3" fill="#ffffff" stroke="#765db5" stroke-width="1.6"/>
+        <circle cx="396" cy="280.5" r="2" fill="#2fa98d"/>
+        <circle cx="396" cy="295.5" r="2" fill="#2fa98d"/>
+        <path d="M403 280.5 H417 M403 295.5 H417" fill="none" stroke="#8975c2" stroke-width="1.8" stroke-linecap="round"/>
+        <text x="382" y="340" class="svg-tag" style="fill:#7155ae">API + CONNECTION ADAPTERS</text>
+        <text x="382" y="378" class="box-title">Node.js backend</text>
+        <text x="382" y="405" class="box-subtitle">TypeScript · localhost:3000</text>
+        <text x="382" y="429" class="box-subtitle">ConnectionManager · four adapters</text>
+        <text x="382" y="453" class="box-subtitle">/api/help · JSON/JPEG · event logs</text>
+        <rect x="382" y="472" width="251" height="24" rx="12" fill="#e2daf7"/>
+        <text x="393" y="488" font-size="12" font-weight="750" fill="#5e499b">Selector never changes MCU state</text>
+
+        <!-- Choice cards -->
+        <rect class="card" x="743" y="165" width="264" height="86" rx="15" fill="#e6f1ff" stroke="#84ace1"/>
+        <rect x="756" y="180" width="9" height="55" rx="4" fill="#4c8bd1"/>
+        <text x="780" y="200" class="transport-title">USB SERIAL</text>
+        <text x="780" y="222" class="transport-description">COM port · 115200 baud</text>
+        <text x="780" y="241" font-size="12" font-weight="800" fill="#2865ad">DEFAULT CLIENT TRANSPORT</text>
+
+        <rect class="card" x="743" y="301" width="264" height="86" rx="15" fill="#e6f8f2" stroke="#8bcbb9"/>
+        <rect x="756" y="316" width="9" height="55" rx="4" fill="#42ae96"/>
+        <text x="780" y="336" class="transport-title">WI-FI TCP</text>
+        <text x="780" y="358" class="transport-description">Raw socket · TCP 3333</text>
+        <text x="780" y="377" font-size="12" font-weight="800" fill="#20836c">RUNS WITH HTTP + BT + USB</text>
+
+        <rect class="card" x="743" y="437" width="264" height="86" rx="15" fill="#e6f8f2" stroke="#8bcbb9"/>
+        <rect x="756" y="452" width="9" height="55" rx="4" fill="#42ae96"/>
+        <text x="780" y="472" class="transport-title">WI-FI HTTP</text>
+        <text x="780" y="494" class="transport-description">GET /capture · GET /info</text>
+        <text x="780" y="513" font-size="12" font-weight="800" fill="#20836c">RUNS WITH TCP + BT + USB</text>
+
+        <rect class="card" x="743" y="573" width="264" height="86" rx="15" fill="#e6f8f2" stroke="#8bcbb9"/>
+        <rect x="756" y="588" width="9" height="55" rx="4" fill="#42ae96"/>
+        <text x="780" y="608" class="transport-title">BLUETOOTH SPP</text>
+        <text x="780" y="630" class="transport-description">Classic BT · paired COM port</text>
+        <text x="780" y="649" font-size="12" font-weight="800" fill="#20836c">RUNS WITH WI-FI + USB</text>
+
+        <!-- ESP32-CAM device and internal classes -->
+        <rect class="card" x="1094" y="246" width="315" height="327" rx="20"
+              fill="url(#deviceFill)" stroke="#7fc4ad"/>
+        <text x="1117" y="277" class="svg-tag" style="fill:#257d6a">DEVICE FIRMWARE</text>
+        <text x="1117" y="313" class="box-title">ESP32-CAM</text>
+        <text x="1117" y="338" class="box-subtitle">AI Thinker · original ESP32</text>
+        <rect x="1116" y="359" width="271" height="57" rx="9" fill="#ffffff" stroke="#a7d9c8"/>
+        <text x="1130" y="380" class="mini-title">TransportManager</text>
+        <text x="1130" y="400" class="transport-description">USB + TCP + HTTP + Bluetooth</text>
+        <path d="M1250 416 V430" stroke="#4ab69b" stroke-width="2.4"/>
+        <rect x="1116" y="431" width="271" height="57" rx="9" fill="#ffffff" stroke="#a7d9c8"/>
+        <text x="1130" y="453" class="mini-title">CommandProcessor</text>
+        <text x="1130" y="473" class="transport-description">c / i / t commands only</text>
+        <path d="M1250 488 V502" stroke="#4ab69b" stroke-width="2.4"/>
+        <rect x="1116" y="503" width="166" height="52" rx="9" fill="#ffffff" stroke="#a7d9c8"/>
+        <text x="1127" y="523" class="mini-title">CameraController</text>
+        <text x="1127" y="542" class="transport-description">OV2640 · JPEG</text>
+        <rect x="1291" y="503" width="96" height="52" rx="9" fill="#ffffff" stroke="#a7d9c8"/>
+        <text x="1303" y="524" class="mini-title">Settings</text>
+        <text x="1303" y="543" class="transport-description">Wi-Fi cfg</text>
+
+        <!-- Data contract -->
+        <rect x="45" y="706" width="1364" height="55" rx="12" fill="#e8f0fa" stroke="#b8cce5"/>
+        <text x="67" y="728" font-size="13" font-weight="850" fill="#2e64a3">SHARED DEVICE PROTOCOL · MANUAL CLIENT CONNECT</text>
+        <text x="67" y="748" font-size="14" fill="#254765">
+          MCU: c = capture JPEG  ·  i = camera info  ·  t = self-test  ·  m = LOCAL CLIENT MODE ONLY
+        </text>
+      </svg>
+    </section>
+
+    <div class="key" aria-label="Architecture legend">
+      <span><b style="color:var(--blue)">Blue:</b> USB default/recovery</span>
+      <span><b style="color:var(--mint)">Green:</b> concurrent wireless services</span>
+      <span><b style="color:var(--violet)">Purple:</b> Angular-facing Node API and diagnostics</span>
+    </div>
+
+    <section class="details" aria-label="Architecture decisions">
+      <article class="detail">
+        <h2>01 · USB stays available</h2>
+        <p>USB-to-UART serial remains active whenever the board is running. Choose USB in the client to recover from a wireless connection failure; no firmware command or reboot is needed.</p>
+      </article>
+      <article class="detail">
+        <h2>02 · Wireless interfaces coexist</h2>
+        <p>The firmware starts Bluetooth SPP and, when configured, Wi-Fi TCP on port <code>3333</code> plus Wi-Fi HTTP on port <code>80</code>. Python <code>m tcp</code> or the Angular selector changes the client link only. The ESP32 stores no mode selection.</p>
+      </article>
+      <article class="detail">
+        <h2>03 · Shared camera logic</h2>
+        <p>USB, TCP and Bluetooth invoke the same <code>CommandProcessor</code>; HTTP calls the same <code>CameraController</code>. Camera captures are serialized by the firmware main loop. The Angular interface uses one Node adapter at a time.</p>
+      </article>
+      <article class="detail">
+        <h2>04 · Local Angular/Node pairing</h2>
+        <p>Angular at <code>localhost:4200</code> proxies <code>/api</code> to Node at <code>127.0.0.1:3000</code>. Node handles COM ports, TCP and Bluetooth SPP. Startup opens only the HTTP listener; Angular makes no startup backend calls. Clicking Connect opens the selected client link. The device interfaces continue independently.</p>
+      </article>
+      <article class="detail">
+        <h2>05 · Signals, status, and errors</h2>
+        <p>Angular 21 uses signal-backed state with OnPush and no Zone.js. Camera info returned by <code>GET /api/info</code> appears in the Camera panel without manual change-detection calls. Connect reuses an existing matching link; if Node is down, the UI shows an error and unlocks buttons. The COM port is not opened on page load.</p>
+      </article>
+      <article class="detail">
+        <h2>06 · Logs and API discovery</h2>
+        <p><code>GET /api/help</code> lists all ten Node routes. <code>GET /api/logs?since=N</code> streams incremental diagnostic events; <code>POST /api/logs/clear</code> clears the backend's 500-entry memory log. The UI provides a diagnostics tab/pop-out, search, filters, export and light/dark themes. Camera-info JSON can be logged, but JPEG binary data is not.</p>
+      </article>
+    </section>
+    <footer>Version 2.1 · Current Angular 21 + Node TypeScript architecture · Concurrent transports / client-side selection · Embedded scalable SVG (no external assets required).</footer>
+  </main>
+</body>
+</html>

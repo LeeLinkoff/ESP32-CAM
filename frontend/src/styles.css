@@ -1,0 +1,133 @@
+/* Light is the default. The toggle saves dark/light preference per browser. */
+:root {
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color-scheme: light;
+  --page: #f0f4fa;
+  --text: #192b43;
+  --muted: #506780;
+  --subtle: #607d9a;
+  --panel: #ffffff;
+  --border: #d3dfed;
+  --field: #f7faff;
+  --code: #eaf2fc;
+  --accent: #1261c7;
+  --accent-contrast: #ffffff;
+  --secondary: #e5eef9;
+  --secondary-text: #26466c;
+  --good: #127651;
+  --bad: #b42335;
+  --notice: #235aa1;
+  --preview: #edf4fc;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0c1425;
+  --text: #e9f1ff;
+  --muted: #adbed7;
+  --subtle: #92a8c8;
+  --panel: #16243b;
+  --border: #324664;
+  --field: #0e1a2d;
+  --code: #0a1425;
+  --accent: #71aeff;
+  --accent-contrast: #08192d;
+  --secondary: #304562;
+  --secondary-text: #eff5ff;
+  --good: #88e6b4;
+  --bad: #ffadb7;
+  --notice: #acd0ff;
+  --preview: #0a1425;
+}
+* { box-sizing: border-box; }
+html { background: var(--page); }
+body { margin: 0; background: var(--page); color: var(--text); min-height: 100vh; }
+.shell { max-width: 1080px; margin: 0 auto; padding: 36px 22px 70px; }
+header { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 25px; }
+.header-actions { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 12px; }
+h1 { font-size: clamp(2rem, 5vw, 3rem); margin: 4px 0 0; letter-spacing: -.045em; }
+h2 { font-size: 1.3rem; margin: 0 0 11px; }
+h3 { font-size: 1rem; }
+p { color: var(--muted); line-height: 1.6; }
+.eyebrow { color: var(--accent); font-size: .72rem; font-weight: 800; letter-spacing: .18em; }
+.status { border: 1px solid var(--bad); color: var(--bad); padding: 9px 13px; border-radius: 24px; white-space: nowrap; font-size: .85rem; font-weight: 650; }
+.status.online { border-color: var(--good); color: var(--good); }
+.panel { background: var(--panel); border: 1px solid var(--border); border-radius: 16px; padding: 26px; margin: 18px 0; box-shadow: 0 7px 22px #152e4d0b; }
+.tabs { display: flex; gap: 8px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.tabs button { border-radius: 10px 10px 0 0; background: transparent; color: var(--muted); border: 1px solid transparent; border-bottom: 3px solid transparent; }
+.tabs button.active { background: var(--panel); border-color: var(--border); border-bottom: 3px solid var(--accent); color: var(--text); }
+.tabs .popout-button { margin-left: auto; font-size: .82rem; color: var(--accent); }
+.fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(235px, 1fr)); gap: 14px; margin: 20px 0; }
+label { display: block; color: var(--text); font-size: .88rem; font-weight: 600; }
+input, select { width: 100%; margin-top: 8px; padding: 12px; border: 1px solid var(--border); border-radius: 9px; color: var(--text); background: var(--field); font: inherit; }
+input:focus-visible, select:focus-visible, button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 20px 0; }
+button { background: var(--accent); color: var(--accent-contrast); font-weight: 750; padding: 11px 17px; border: 0; border-radius: 9px; cursor: pointer; font: inherit; }
+button.secondary { background: var(--secondary); color: var(--secondary-text); }
+button.danger { background: var(--bad); color: #fff; }
+button:disabled { opacity: .55; cursor: not-allowed; }
+.theme-button { white-space: nowrap; font-size: .82rem; }
+.notice { color: var(--notice); margin-bottom: 0; }
+.gui-state { margin: 12px 0 3px; font-size: .8rem; color: var(--subtle); }
+.gui-state strong { color: var(--text); }
+.operation-status { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; padding: 12px 15px; border-radius: 9px; border: 1px solid var(--accent); background: var(--field); }
+.operation-status button { padding: 7px 12px; }
+.command-state { padding: 10px 13px; border-radius: 9px; border: 1px solid var(--border); background: var(--field); color: var(--good); font-size: .86rem; }
+.command-state-blocked { color: var(--bad); }
+.camera-info { border: 2px solid var(--good); background: var(--field); padding: 19px; border-radius: 12px; margin-top: 18px; }
+.camera-info h3 { font-size: 1.15rem; margin: 0; }
+.camera-info .section-header { flex-wrap: wrap; }
+.camera-result { display: inline-block; color: var(--good) !important; font-weight: 850; border: 1px solid currentColor; border-radius: 24px; padding: 7px 10px; }
+.camera-result-fail { color: var(--bad) !important; }
+.camera-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 13px; margin: 18px 0; }
+.camera-fields > div { padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); }
+.camera-fields dt { color: var(--muted); font-size: .78rem; margin-bottom: 4px; }
+.camera-fields dd { color: var(--text); margin: 0; font-size: .94rem; font-weight: 750; overflow-wrap: anywhere; }
+.camera-info summary { cursor: pointer; color: var(--accent); font-weight: 600; }
+.error { color: var(--bad); font-weight: 650; }
+.section-header { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.section-header span { color: var(--subtle); font-size: .82rem; }
+.preview, .empty-preview { margin-top: 20px; background: var(--preview); border: 1px dashed var(--border); min-height: 260px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; color: var(--muted); overflow: hidden; }
+.preview img { max-width: 100%; max-height: 500px; object-fit: contain; }
+.preview a { color: var(--accent); margin-bottom: 14px; }
+pre { overflow: auto; padding: 16px; background: var(--code); border-radius: 8px; color: var(--text); }
+.test-pass { color: var(--good); }
+.test-fail { color: var(--bad); }
+
+/* Debugging console: text is selectable and can also be exported as JSON. */
+.diagnostics .section-header { align-items: flex-start; }
+.diagnostics .section-header p { margin: 0; }
+.log-count { white-space: nowrap; }
+.log-toolbar { display: grid; grid-template-columns: minmax(145px, 180px) minmax(200px, 1fr) auto; gap: 14px; align-items: end; margin-top: 21px; }
+.checkbox-label { display: flex; gap: 8px; align-items: center; padding-bottom: 14px; white-space: nowrap; }
+.checkbox-label input { width: auto; margin: 0; accent-color: var(--accent); }
+.log-actions { margin: 15px 0; }
+.log-list { border: 1px solid var(--border); border-radius: 12px; background: var(--field); max-height: 540px; min-height: 220px; overflow: auto; }
+.log-entry { padding: 12px 14px; border-bottom: 1px solid var(--border); border-left: 3px solid transparent; font-size: .84rem; }
+.log-entry:last-child { border-bottom: none; }
+.log-entry-error { border-left-color: #dc4052; }
+.log-entry-warn { border-left-color: #d48a21; }
+.log-entry-ui { background: color-mix(in srgb, var(--accent) 5%, transparent); }
+.log-entry-main { display: flex; align-items: baseline; flex-wrap: wrap; gap: 9px; }
+.log-time { font-size: .75rem; color: var(--subtle); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.log-level { font-size: .68rem; border-radius: 6px; padding: 3px 7px; font-weight: 800; letter-spacing: .03em; color: #164b80; background: #dcebf8; }
+.log-level[data-level="error"] { background: #fde2e5; color: #a32032; }
+.log-level[data-level="warn"] { background: #fff0d1; color: #87510d; }
+.log-level[data-level="debug"] { background: #e5e8f0; color: #525b72; }
+.log-source { color: var(--accent); font-weight: 750; min-width: 65px; }
+.log-message { color: var(--text); flex: 1; min-width: 180px; word-break: break-word; }
+.log-metadata { margin: 8px 0 0 118px; color: var(--subtle); }
+.log-metadata summary { cursor: pointer; font-size: .77rem; }
+.log-metadata pre { font-size: .78rem; margin: 6px 0 0; white-space: pre-wrap; word-break: break-word; }
+.empty-logs { text-align: center; padding: 34px 16px; }
+.log-help { font-size: .84rem; }
+@media (max-width: 650px) {
+  .shell { padding: 24px 14px 60px; }
+  header { align-items: flex-start; flex-direction: column; }
+  .header-actions { justify-content: flex-start; }
+  .panel { padding: 18px; }
+  .tabs .popout-button { margin-left: 0; }
+  .log-toolbar { grid-template-columns: 1fr; }
+  .checkbox-label { padding: 0; }
+  .log-metadata { margin-left: 0; }
+  .diagnostics .section-header { flex-direction: column; }
+}

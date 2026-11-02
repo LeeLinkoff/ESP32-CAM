@@ -1,0 +1,19 @@
+{
+  "name": "esp32cam-control-backend",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node dist/TypeScript/server.js",
+    "test": "node --test",
+    "build": "npx tsc --listEmittedFiles"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "serialport": "^13.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6"
+  }
+}

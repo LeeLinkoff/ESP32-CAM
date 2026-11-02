@@ -1,0 +1,153 @@
+<main class="shell">
+  <header>
+    <div><span class="eyebrow">CAMERA CONTROL</span><h1>ESP32-CAM</h1></div>
+    <div class="header-actions">
+      <span class="status" [class.online]="status.connected">
+        {{ status.connected ? ('Connected · ' + status.mode.toUpperCase()) : 'Disconnected' }}
+      </span>
+      <button type="button" class="secondary theme-button" (click)="toggleTheme()">
+        {{ theme === 'light' ? '🌙 Dark theme' : '☀️ Light theme' }}
+      </button>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="Application sections">
+    <button type="button" role="tab" [attr.aria-selected]="activeTab === 'camera'" [class.active]="activeTab === 'camera'" (click)="showTab('camera')">Camera</button>
+    <button type="button" role="tab" [attr.aria-selected]="activeTab === 'diagnostics'" [class.active]="activeTab === 'diagnostics'" (click)="showTab('diagnostics')">Diagnostics / logs</button>
+    <button type="button" class="secondary popout-button" (click)="openDiagnosticsWindow()">Open logs in new window ↗</button>
+  </nav>
+
+  <ng-container *ngIf="activeTab === 'camera'">
+  <section class="panel">
+    <h2>Connection</h2>
+    <p>USB, Bluetooth SPP, Wi-Fi TCP and Wi-Fi HTTP can run together on the ESP32-CAM. This selector only changes how this app connects. Wi-Fi needs credentials in firmware; Bluetooth needs pairing.</p>
+    <div class="fields">
+      <label>Transport
+        <select [(ngModel)]="mode" [disabled]="busy">
+          <option value="usb">USB serial (default)</option>
+          <option value="tcp">Wi-Fi TCP</option>
+          <option value="http">Wi-Fi HTTP</option>
+          <option value="bluetooth">Bluetooth SPP</option>
+        </select>
+      </label>
+      <label *ngIf="usesPort">{{ mode === 'bluetooth' ? 'Paired Bluetooth COM port' : 'USB COM port' }}
+        <select [(ngModel)]="selectedPort" [disabled]="busy">
+          <option *ngFor="let item of ports" [value]="item.path">{{ item.path }} {{ item.manufacturer }}</option>
+        </select>
+      </label>
+      <label *ngIf="!usesPort">ESP32-CAM IP address
+        <input [(ngModel)]="host" placeholder="ESP32 IP shown in USB serial output" [disabled]="busy">
+      </label>
+    </div>
+    <div class="actions">
+      <button (click)="connect()" [disabled]="busy">{{ status.connected ? 'Switch / reconnect' : 'Connect' }}</button>
+      <button class="secondary" (click)="disconnect()" [disabled]="busy || !status.connected">Disconnect</button>
+      <button class="secondary" (click)="refreshPorts()" [disabled]="busy">Refresh ports</button>
+    </div>
+    <p class="gui-state">GUI state: <strong>{{ status.connected ? 'CONNECTED' : 'DISCONNECTED' }}</strong> · busy: <strong>{{ busy }}</strong> · selected: <strong>{{ mode.toUpperCase() }}</strong></p>
+    <p class="operation-status" *ngIf="busy">Running: <strong>{{ activeOperation }}</strong> · {{ operationElapsedSeconds | number:'1.1-1' }} seconds
+      <button type="button" class="secondary" (click)="cancelPending()">Stop waiting</button>
+    </p>
+    <p class="gui-state">Last command: <strong>{{ lastOperation }}</strong></p>
+    <p class="notice">{{ message }}</p>
+    <p *ngIf="error" class="error" role="alert">{{ error }}</p>
+  </section>
+
+  <section class="panel">
+    <div class="section-header"><h2>Camera</h2><span>Commands: c / i / t</span></div>
+    <div class="actions">
+      <button (click)="capture()" [disabled]="busy || !status.connected">Capture image (c)</button>
+      <button class="secondary" (click)="getInfo()" [disabled]="busy || !status.connected">Camera info (i)</button>
+      <button class="secondary" (click)="selfTest()" [disabled]="busy || !status.connected">Run self-test (t)</button>
+    </div>
+    <p class="command-state" [class.command-state-blocked]="busy || !status.connected">{{ commandDisabledReason }}</p>
+    <div *ngIf="info" class="info camera-info" role="status" aria-live="polite">
+      <div class="section-header">
+        <h3>Camera information — response to command 'i'</h3>
+        <span class="camera-result" [class.camera-result-fail]="!info.cameraReady">{{ info.cameraReady ? 'CAMERA READY' : 'CAMERA NOT READY' }}</span>
+      </div>
+      <dl class="camera-fields">
+        <div><dt>Command</dt><dd>{{ info.cmd }}</dd></div>
+        <div><dt>Response OK</dt><dd>{{ info.ok ? 'Yes' : 'No' }}</dd></div>
+        <div><dt>Board</dt><dd>{{ info.board }}</dd></div>
+        <div><dt>Camera initialized</dt><dd>{{ info.cameraReady ? 'Yes' : 'No' }}</dd></div>
+        <div><dt>Image format</dt><dd>{{ info.format }}</dd></div>
+        <div><dt>PSRAM</dt><dd>{{ info.psram ? 'Detected' : 'Not detected' }}</dd></div>
+        <div><dt>Sensor PID</dt><dd>{{ info.sensorPid ?? 'Not reported' }}</dd></div>
+        <div><dt>Frame size code</dt><dd>{{ info.frameSizeCode ?? 'Not reported' }}</dd></div>
+        <div><dt>JPEG quality</dt><dd>{{ info.jpegQuality ?? 'Not reported' }}</dd></div>
+      </dl>
+      <details><summary>Raw JSON returned by Node</summary><pre>{{ info | json }}</pre></details>
+    </div>
+    <p *ngIf="error" class="error" role="alert">Camera command error: {{ error }}</p>
+    <div class="preview" *ngIf="imageUrl; else emptyPreview">
+      <img [src]="imageUrl" alt="Latest ESP32-CAM capture">
+      <a [href]="imageUrl" download="esp32cam-capture.jpg">Download JPEG</a>
+    </div>
+    <ng-template #emptyPreview><div class="empty-preview">No image captured yet</div></ng-template>
+    <div *ngIf="testReport" class="info">
+      <h3>Firmware self-test <span [class.test-pass]="testReport.passed" [class.test-fail]="!testReport.passed">{{ testReport.passed ? 'PASS' : 'FAIL' }}</span></h3>
+      <ul>
+        <li *ngFor="let check of testReport.checks | keyvalue">
+          {{ check.key }}: {{ check.value === null ? 'not applicable' : (check.value ? 'PASS' : 'FAIL') }}
+        </li>
+      </ul>
+      <p>Frame: {{ testReport.details.frameBytes }} bytes · Free heap: {{ testReport.details.freeHeapBytes }} bytes · PSRAM: {{ testReport.details.psramPresent ? 'present' : 'not detected (optional)' }}</p>
+      <p>Wi-Fi: {{ testReport.details.wifiConfigured ? (testReport.details.wifiConnected ? 'connected' : 'configured, not connected') : 'not configured' }} (diagnostic; not a camera self-test failure)</p>
+    </div>
+  </section>
+  </ng-container>
+
+  <section class="panel diagnostics" *ngIf="activeTab === 'diagnostics'">
+    <div class="section-header">
+      <div>
+        <h2>Live diagnostics</h2>
+        <p>Trace USB/COM connections, MCU commands, responses, timeouts, and errors. No JPEG bytes are logged.</p>
+      </div>
+      <span class="log-count">{{ logs.length }} backend · {{ clientLogs.length }} Angular UI entries</span>
+    </div>
+    <p class="gui-state">GUI state: connected = <strong>{{ status.connected }}</strong> · busy = <strong>{{ busy }}</strong> · active client = <strong>{{ status.mode.toUpperCase() }}</strong></p>
+    <p class="gui-state">Buttons: {{ commandDisabledReason }} · Last command: {{ lastOperation }}</p>
+    <div class="log-toolbar">
+      <label>Severity
+        <select [(ngModel)]="logLevel">
+          <option value="all">All levels</option>
+          <option value="debug">Debug / trace</option>
+          <option value="info">Info</option>
+          <option value="warn">Warnings</option>
+          <option value="error">Errors</option>
+        </select>
+      </label>
+      <label class="log-search-label">Search log messages
+        <input [(ngModel)]="logSearch" placeholder="COM4, timeout, serial, i, c, t…">
+      </label>
+      <label class="checkbox-label">
+        <input type="checkbox" [(ngModel)]="autoRefreshLogs"> Auto-refresh (1.5 s)
+      </label>
+    </div>
+    <div class="actions log-actions">
+      <button type="button" class="secondary" (click)="refreshLogs()" [disabled]="logLoading">{{ logLoading ? 'Refreshing…' : 'Refresh now' }}</button>
+      <button type="button" class="secondary" (click)="downloadLogs()" [disabled]="!allLogs.length">Download JSON log</button>
+      <button type="button" class="secondary" (click)="openDiagnosticsWindow()">Pop out window</button>
+      <button type="button" class="danger" (click)="clearLogs()">Clear log</button>
+    </div>
+    <p *ngIf="logError" class="error" role="alert">{{ logError }}</p>
+    <div class="log-list" role="log" aria-label="Angular UI and backend diagnostic events" aria-live="off">
+      <div class="log-entry" *ngFor="let entry of visibleLogs" [class.log-entry-error]="entry.level === 'error'" [class.log-entry-warn]="entry.level === 'warn'" [class.log-entry-ui]="entry.source === 'Angular UI'">
+        <div class="log-entry-main">
+          <time class="log-time">{{ entry.time | date:'mediumTime' }}</time>
+          <span class="log-level" [attr.data-level]="entry.level">{{ entry.level.toUpperCase() }}</span>
+          <span class="log-source">{{ entry.source }}</span>
+          <span class="log-message">{{ entry.message }}</span>
+        </div>
+        <details class="log-metadata" *ngIf="entry.details">
+          <summary>Event details</summary>
+          <pre>{{ entry.details | json }}</pre>
+        </details>
+      </div>
+      <p class="empty-logs" *ngIf="!visibleLogs.length">No matching log events yet. Try connecting to the ESP32-CAM using the Camera tab.</p>
+    </div>
+    <p class="log-help">Events include the actual Angular button action, response validation, HTTP errors, unlock state, and Node-to-MCU activity. Angular UI entries are kept in browser storage for the pop-out window; the backend keeps its latest 500 entries in memory. No JPEG bytes are logged.</p>
+  </section>
+</main>
+
